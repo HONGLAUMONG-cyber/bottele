@@ -7,7 +7,7 @@ TOKEN = os.getenv('TELEGRAM_TOKEN')
 bot = telebot.TeleBot(TOKEN)
 
 SOURCE_CHANNEL_ID = -1003740753455    # Kênh nguồn
-STORAGE_GROUP_ID = -1008078171493     # Nhóm lưu trữ
+STORAGE_GROUP_ID = -1003842996683     # ID nhóm lưu trữ mới của bạn
 
 # Giao diện chào mừng
 @bot.message_handler(commands=['start'])
