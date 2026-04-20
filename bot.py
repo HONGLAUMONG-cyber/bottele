@@ -17,15 +17,28 @@ link_storage = {}
 @bot.message_handler(commands=['start'])
 def handle_start(message):
     args = message.text.split()
-    # Nếu khách bấm vào link có mã (ví dụ: /start batch_abcd)
-    if len(args) > 1:
-        batch_id = args[1]
-        if batch_id in link_storage:
-            msg_ids = link_storage[batch_id]
-            # Nhả bài ra cho khách
+    # 1. Nhả bài cho khách
             bot.copy_messages(chat_id=message.chat.id, from_chat_id=SOURCE_CHANNEL_ID, message_ids=msg_ids)
-        else:
-            bot.send_message(message.chat.id, "❌ Link đã hết hạn hoặc không tồn tại.")
+            
+            # 2. ĐOẠN HIỆN THÔNG BÁO TỔNG KẾT VÀ 2 NÚT BẤM (GIỐNG MẪU)
+            from datetime import datetime
+            today = datetime.now().strftime("%d-%m-%Y")
+            
+            footer_text = (
+                f"✅ **ĐÃ GỬI XONG ALBUM NGÀY {today}**\n"
+                f"🔥 Đã gửi xong link Tổng: **{len(msg_ids)}/{len(msg_ids)} (Link)**\n\n"
+                f"📊 **Tình trạng lượt dùng:**\n"
+                f"🎟 Còn lại: **5/5** lượt nhận link nhanh.\n"
+                f"⌛ _Lưu ý: Nếu dùng hết 5 lượt, sếp vui lòng đợi 30 phút để hệ thống reset lại nhé!_"
+            )
+            
+            markup = types.InlineKeyboardMarkup()
+            btn1 = types.InlineKeyboardButton(text="📅 XEM TIẾP NGÀY KHÁC", url="https://t.me/Tramgiaitri")
+            btn2 = types.InlineKeyboardButton(text="👤 HỖ TRỢ BÁO LỖI LINK", url="https://t.me/Beshanday")
+            markup.add(btn1)
+            markup.add(btn2)
+            
+            bot.send_message(message.chat.id, footer_text, reply_markup=markup, parse_mode='Markdown')
     else:
         # Giao diện chào mừng bình thường
         welcome_text = f"Chào mừng ✪ {message.from_user.first_name} ✪\n✨ Bấm nút để lấy link bài mới nhất."
