@@ -36,7 +36,7 @@ def handle_get_album(call):
         max_id = check.message_id
         bot.delete_message(SOURCE_CHANNEL_ID, max_id)
 
-        # Lấy dải 10 ID gần nhất
+        # Lấy dải 100 ID gần nhất
         message_ids = list(range(max_id - 10, max_id))
 
         # 1. Gửi vào NHÓM LƯU TRỮ (Dùng copy_messages để giữ nguyên Album)
