@@ -1,64 +1,65 @@
 import os
 import telebot
+import uuid # Dùng để tạo mã link ngẫu nhiên
 from telebot import types
 
 # 1. Cấu hình
 TOKEN = os.getenv('TELEGRAM_TOKEN')
 bot = telebot.TeleBot(TOKEN)
 
-SOURCE_CHANNEL_ID = -1003740753455    # Kênh nguồn
-STORAGE_GROUP_ID = -1003842996683     # ID nhóm lưu trữ mới của bạn
+SOURCE_CHANNEL_ID = -1003740753455    
+STORAGE_GROUP_ID = -1003842996683     
+BOT_USERNAME = "DongBanTo01_bot" # Thay đúng username bot của bạn
 
-# Giao diện chào mừng
+# Lưu trữ tạm thời link (Trong thực tế nên dùng Database)
+link_storage = {}
+
 @bot.message_handler(commands=['start'])
-def send_welcome(message):
-    user_name = message.from_user.first_name
-    welcome_text = (
-        f"Chào mừng ✪ {user_name} ✪ đến với **DongBanTo** 😊\n"
-        f"━━━━━━━━━━━━━━━━━━━━\n"
-        f"✨ Nhấn nút dưới đây để nhận Album mới nhất.\n"
-        f"📂 Bài viết được sao lưu sạch (không chữ chuyển tiếp) vào nhóm."
-    )
-    
-    markup = types.InlineKeyboardMarkup()
-    btn = types.InlineKeyboardButton(text="🔗 LẤY FULL ALBUM HÔM NAY", callback_data="get_full_album")
-    markup.add(btn)
-    
-    bot.send_message(message.chat.id, welcome_text, reply_markup=markup, parse_mode='Markdown')
+def handle_start(message):
+    args = message.text.split()
+    # Nếu khách bấm vào link có mã (ví dụ: /start batch_abcd)
+    if len(args) > 1:
+        batch_id = args[1]
+        if batch_id in link_storage:
+            msg_ids = link_storage[batch_id]
+            # Nhả bài ra cho khách
+            bot.copy_messages(chat_id=message.chat.id, from_chat_id=SOURCE_CHANNEL_ID, message_ids=msg_ids)
+        else:
+            bot.send_message(message.chat.id, "❌ Link đã hết hạn hoặc không tồn tại.")
+    else:
+        # Giao diện chào mừng bình thường
+        welcome_text = f"Chào mừng ✪ {message.from_user.first_name} ✪\n✨ Bấm nút để lấy link bài mới nhất."
+        markup = types.InlineKeyboardMarkup()
+        markup.add(types.InlineKeyboardButton(text="🔗 LẤY LINK ALBUM", callback_data="get_link"))
+        bot.send_message(message.chat.id, welcome_text, reply_markup=markup, parse_mode='Markdown')
 
-# Xử lý lấy Album sạch
-@bot.callback_query_handler(func=lambda call: call.data == "get_full_album")
-def handle_get_album(call):
+@bot.callback_query_handler(func=lambda call: call.data == "get_link")
+def handle_gen_link(call):
     user_id = call.message.chat.id
     try:
         # Dò ID bài mới nhất
         check = bot.send_message(SOURCE_CHANNEL_ID, ".")
         max_id = check.message_id
         bot.delete_message(SOURCE_CHANNEL_ID, max_id)
-
-        # Lấy dải 100 ID gần nhất
+        
+        # Lấy dải 10 ID (Album/Video)
         message_ids = list(range(max_id - 10, max_id))
 
-        # 1. Gửi vào NHÓM LƯU TRỮ (Dùng copy_messages để giữ nguyên Album)
+        # 1. Sao lưu vào nhóm lưu trữ trước
         try:
-            bot.copy_messages(
-                chat_id=-1003842996683, 
-                from_chat_id=SOURCE_CHANNEL_ID, 
-                message_ids=message_ids
-            )
-        except:
-            pass
+            bot.copy_messages(chat_id=STORAGE_GROUP_ID, from_chat_id=SOURCE_CHANNEL_ID, message_ids=message_ids)
+        except: pass
 
-        # 2. Gửi cho KHÁCH HÀNG (Dùng copy_messages để giữ nguyên Album)
-        bot.copy_messages(
-            chat_id=user_id, 
-            from_chat_id=SOURCE_CHANNEL_ID, 
-            message_ids=message_ids
-        )
+        # 2. Tạo mã link ngẫu nhiên
+        batch_id = f"batch_{uuid.uuid4().hex[:8]}"
+        link_storage[batch_id] = message_ids # Lưu danh sách ID vào bộ nhớ
+
+        # 3. Gửi link cho người dùng
+        share_link = f"https://t.me/{BOT_USERNAME}?start={batch_id}"
+        bot.send_message(user_id, f"✅ Đã tạo link thành công!\n\n🔗 Link của bạn:\n`{share_link}`", parse_mode='Markdown')
 
     except Exception as e:
-        bot.send_message(user_id, "❌ Lỗi: Bot chưa có quyền Admin hoặc dải ID trống.")
+        bot.send_message(user_id, "❌ Lỗi: Bot chưa có quyền Admin.")
 
-# KHỞI CHẠY BOT - ĐÃ KIỂM TRA CÚ PHÁP CHUẨN
 if __name__ == "__main__":
     bot.infinity_polling()
