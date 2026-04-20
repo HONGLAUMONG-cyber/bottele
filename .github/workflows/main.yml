@@ -1,10 +1,7 @@
 name: Hong Lau Mong Bot Run
-
-on:
+on: 
   push:
     branches: [ main ]
-  schedule:
-    - cron: '0 */6 * * *' # Tự động khởi động lại mỗi 6 tiếng
   workflow_dispatch:
 
 jobs:
@@ -13,16 +10,13 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
-
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.9'
-
       - name: Install dependencies
         run: |
           pip install -r requirements.txt
-
       - name: Run Bot
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
