@@ -78,11 +78,21 @@ def handle_start(message):
                     bot.copy_messages(chat_id=message.chat.id, from_chat_id=SOURCE_CHANNEL_ID, message_ids=link_storage[batch_id])
                     time.sleep(1)
                     now_vn = get_vn_time()
-                    finish_text = f"✅ **ĐÃ GỬI XONG!**\n📅 `{now_vn.strftime('%d-%m-%Y')}`\n📊 Tình trạng: 5/5 sạch."
-                    markup = types.InlineKeyboardMarkup()
-                    markup.add(types.InlineKeyboardButton(text="📅 XEM TIẾP", url="https://t.me/Tramgiaitri"))
-                    bot.send_message(message.chat.id, finish_text, reply_markup=markup, parse_mode='Markdown')
-                    return
+                    finish_text = (
+                    f"✅ **ĐÃ GỬI XONG ALBUM NGÀY**\n"
+                    f"📅 `{now_vn.strftime('%d-%m-%Y')}` | ⏰ `{now_vn.strftime('%H:%M:%S')}`\n"
+                    f"━━━━━━━━━━━━━━━━━━━━\n"
+                    f"💈 Đã gửi xong link Tổng: {len(link_storage[batch_id])} bài (30p qua)\n"
+                    f"📊 Tình trạng lượt dùng: 0/5 lượt.\n"
+                    f"📺 *Lưu ý: Đợi 30 phút để hệ thống reset nhé!*"
+                )
+
+                markup = types.InlineKeyboardMarkup()
+                markup.add(types.InlineKeyboardButton(text="Xem Thêm Link Ngày Khác 🎭", url="https://t.me/Tramgiaitri"))
+                markup.add(types.InlineKeyboardButton(text="Hỗ Trợ Admin 👤", url="https://t.me/Beshanday"))
+                
+                bot.send_message(message.chat.id, finish_text, reply_markup=markup, parse_mode='Markdown')
+                return
                 except: pass
         return
 
