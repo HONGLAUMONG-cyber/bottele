@@ -1,71 +1,45 @@
 import os
 import telebot
 from telebot import types
-from datetime import datetime
-import pytz
 
 # Cấu hình
 TOKEN = os.getenv('TELEGRAM_TOKEN')
 bot = telebot.TeleBot(TOKEN)
 
 SOURCE_CHANNEL_ID = -1003740753455    # Kênh nguồn
-STORAGE_GROUP_ID = -1008078171493     # Nhóm lưu trữ
-VN_TZ = pytz.timezone('Asia/Ho_Chi_Minh')
+STORAGE_GROUP_ID = -1008078171493     # Nhóm lưu trữ (Backup)
 
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     markup = types.InlineKeyboardMarkup()
-    markup.add(types.InlineKeyboardButton(text="🔗 LẤY TẤT CẢ LINK HÔM NAY", callback_data="get_all_today"))
-    bot.send_message(
-        message.chat.id, 
-        f"Chào mừng bạn! Nhấn nút dưới đây để lấy toàn bộ danh sách link mới nhất ngày hôm nay.",
-        reply_markup=markup,
-        parse_mode='Markdown'
-    )
+    markup.add(types.InlineKeyboardButton(text="🚀 LẤY LINK MỚI NHẤT (FULL BÀI)", callback_data="get_full_post"))
+    bot.send_message(message.chat.id, "Hệ thống DongBanTo đã sẵn sàng! Bấm nút để lấy toàn bộ nội dung bài mới nhất.", reply_markup=markup)
 
-@bot.callback_query_handler(func=lambda call: call.data == "get_all_today")
-def handle_get_all(call):
+@bot.callback_query_handler(func=lambda call: call.data == "get_full_post")
+def handle_get_post(call):
     user_id = call.message.chat.id
-    now_vn = datetime.now(VN_TZ)
-    start_of_day = now_vn.replace(hour=0, minute=0, second=0, microsecond=0)
-    
     try:
-        status_msg = bot.send_message(user_id, "⏳ **Đang quét toàn bộ dữ liệu hôm nay...**", parse_mode='Markdown')
+        # Gửi tin nhắn tạm để dò ID
+        check = bot.send_message(SOURCE_CHANNEL_ID, ".")
+        max_id = check.message_id
+        bot.delete_message(SOURCE_CHANNEL_ID, max_id)
 
-        # Dò ID bài viết mới nhất
-        temp_msg = bot.send_message(SOURCE_CHANNEL_ID, ".")
-        current_max_id = temp_msg.message_id
-        bot.delete_message(SOURCE_CHANNEL_ID, current_max_id)
-
-        found_any = False
-        # Quét ngược từ tin mới nhất về trước (trong phạm vi 50 tin nhắn gần nhất để tránh treo)
-        for msg_id in range(current_max_id - 1, current_max_id - 51, -1):
+        # Quét lấy 5 tin nhắn gần nhất (để đảm bảo lấy đủ 1 bài gồm nhiều ảnh/text)
+        found = False
+        for i in range(max_id - 1, max_id - 6, -1):
             try:
-                # Forward thử để kiểm tra nội dung
-                forwarded = bot.forward_message(STORAGE_GROUP_ID, SOURCE_CHANNEL_ID, msg_id, disable_notification=True)
-                
-                # Kiểm tra xem tin nhắn có phải trong ngày hôm nay không
-                msg_date = datetime.fromtimestamp(forwarded.date, VN_TZ)
-                
-                if msg_date >= start_of_day:
-                    # Nếu đúng hôm nay, copy sang cho người dùng
-                    bot.copy_message(chat_id=user_id, from_chat_id=SOURCE_CHANNEL_ID, message_id=msg_id)
-                    found_any = True
-                else:
-                    # Nếu đã quét đến tin của ngày hôm qua thì dừng lại
-                    bot.delete_message(STORAGE_GROUP_ID, forwarded.message_id)
-                    break
-            except Exception:
+                # 1. Copy cho khách
+                bot.copy_message(chat_id=user_id, from_chat_id=SOURCE_CHANNEL_ID, message_id=i)
+                # 2. Sao lưu luôn vào nhóm lưu trữ
+                bot.copy_message(chat_id=STORAGE_GROUP_ID, from_chat_id=SOURCE_CHANNEL_ID, message_id=i)
+                found = True
+            except:
                 continue
-
-        bot.delete_message(user_id, status_msg.message_id)
-
-        if not found_any:
-            bot.send_message(user_id, "⚠️ Hôm nay Admin chưa đăng bài nào mới.")
-        else:
-            bot.send_message(user_id, "✅ Đã gửi toàn bộ nội dung trong ngày cho bạn!")
+        
+        if not found:
+            bot.send_message(user_id, "Kênh nguồn đang trống, hãy đăng bài rồi thử lại nhé!")
 
     except Exception as e:
-        bot.send_message(user_id, "❌ Lỗi hệ thống: Bot cần quyền Admin ở cả Kênh và Nhóm lưu trữ.")
+        bot.send_message(user_id, "Lỗi rồi đại ca ơi! Kiểm tra lại quyền Admin của Bot nhé.")
 
 bot.infinity_polling()
