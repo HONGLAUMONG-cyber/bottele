@@ -14,7 +14,7 @@ bot = telebot.TeleBot(TOKEN)
 SOURCE_CHANNEL_ID = -1003740753455    
 STORAGE_GROUP_ID = -1003842996683     
 CHECK_CHANNEL_ID = -1003728214800     
-BOT_USERNAME = "DongBanTo01_bot"
+BOT_USERNAME = "Honglaumongg_bot"
 
 # --- QUAN TRỌNG: Sếp hãy kiểm tra kỹ dãy số ID này ---
 # Nếu ID cá nhân sếp là số dương, hãy bỏ dấu "-" đi.
