@@ -12,12 +12,37 @@ bot = telebot.TeleBot(TOKEN)
 
 SOURCE_CHANNEL_ID = -1003740753455    
 STORAGE_GROUP_ID = -1003842996683     
-BOT_USERNAME = "Honglaumongg_bot"
+BOT_USERNAME = "Honglaumongg_bot" # Đảm bảo đúng username bot của bạn
 
 link_storage = {}
+LATEST_BATCH_ID = None 
 
 def get_vn_time():
     return datetime.now(pytz.timezone('Asia/Ho_Chi_Minh'))
+
+# --- SỬA LỆNH /xemngay TẠI ĐÂY ---
+@bot.message_handler(commands=['xemngay'])
+def handle_xem_ngay(message):
+    global LATEST_BATCH_ID
+    user_name = message.from_user.first_name
+    
+    if LATEST_BATCH_ID and LATEST_BATCH_ID in link_storage:
+        share_link = f"https://t.me/{BOT_USERNAME}?start={LATEST_BATCH_ID}"
+        
+        # Giao diện tin nhắn theo mẫu bạn gửi
+        welcome_text = (
+            f"Chào mừng ✪ {user_name} ✪ đến với **Hồng Lâu Mộng** 😊\n"
+            f"❄️ Vui lòng Đừng Chặn BOT để nhận link mới nha! ❄️"
+        )
+        
+        # Tạo nút bấm Inline
+        markup = types.InlineKeyboardMarkup()
+        btn_link = types.InlineKeyboardButton(text="🔗 LINK HÔM NAY - Ấn vào đây", url=share_link)
+        markup.add(btn_link)
+        
+        bot.send_message(message.chat.id, welcome_text, reply_markup=markup, parse_mode='Markdown')
+    else:
+        bot.send_message(message.chat.id, "ℹ️ Hiện chưa có link nào được tạo. Sếp vui lòng bấm /start để tạo link mới nhé!")
 
 @bot.message_handler(commands=['start'])
 def handle_start(message):
@@ -27,13 +52,11 @@ def handle_start(message):
         if batch_id in link_storage:
             msg_ids = link_storage[batch_id]
             try:
-                # Gửi album sạch cho khách
                 bot.copy_messages(chat_id=message.chat.id, from_chat_id=SOURCE_CHANNEL_ID, message_ids=msg_ids)
-                
                 time.sleep(1)
                 now_vn = get_vn_time()
                 
-                # Nội dung tin nhắn kết thúc
+                # Tin nhắn kết thúc khi khách nhận xong bài
                 finish_text = (
                     f"✅ **ĐÃ GỬI XONG ALBUM NGÀY**\n"
                     f"📅 `{now_vn.strftime('%d-%m-%Y')}` | ⏰ `{now_vn.strftime('%H:%M:%S')}`\n"
@@ -49,32 +72,28 @@ def handle_start(message):
                 
                 bot.send_message(message.chat.id, finish_text, reply_markup=markup, parse_mode='Markdown')
             except:
-                bot.send_message(message.chat.id, "❌ Lỗi: Không thể copy bài (có thể bài đã bị xóa).")
-        else:
-            bot.send_message(message.chat.id, "❌ Link hết hạn hoặc không tìm thấy bài trong 30p qua.")
+                bot.send_message(message.chat.id, "❌ Lỗi: Bài viết không tồn tại.")
     else:
+        # Khi nhấn /start bình thường
         markup = types.InlineKeyboardMarkup()
         markup.add(types.InlineKeyboardButton(text="🔗 LẤY LINK 30 PHÚT QUA", callback_data="gen_link"))
-        bot.send_message(message.chat.id, "Chào sếp! Bấm nút để lọc bài trong 30 phút gần nhất.", reply_markup=markup)
+        bot.send_message(message.chat.id, f"Chào mừng {message.from_user.first_name}! Bấm nút để tạo link.", reply_markup=markup)
 
 @bot.callback_query_handler(func=lambda call: call.data == "gen_link")
 def handle_gen_link(call):
+    global LATEST_BATCH_ID
     user_id = call.message.chat.id
     try:
-        # Lấy ID tin nhắn mới nhất bằng cách gửi tin nhắn tạm
         tmp_msg = bot.send_message(SOURCE_CHANNEL_ID, ".")
         max_id = tmp_msg.message_id
         bot.delete_message(SOURCE_CHANNEL_ID, max_id)
 
         valid_ids = []
-        now = datetime.now(pytz.utc) # Telegram dùng giờ UTC
+        now = datetime.now(pytz.utc)
         thirty_mins_ago = now - timedelta(minutes=30)
 
-        # Quét ngược 20 tin nhắn gần nhất để tìm tin trong vòng 30p
-        # (Không quét quá nhiều để tránh bị Telegram chặn)
-        for m_id in range(max_id - 1, max_id - 21, -1):
+        for m_id in range(max_id - 1, max_id - 30, -1):
             try:
-                # Dùng forward để check thời gian (sau đó xóa đi)
                 check_msg = bot.forward_message(STORAGE_GROUP_ID, SOURCE_CHANNEL_ID, m_id)
                 msg_date = datetime.fromtimestamp(check_msg.forward_date, pytz.utc)
                 bot.delete_message(STORAGE_GROUP_ID, check_msg.message_id)
@@ -82,26 +101,23 @@ def handle_gen_link(call):
                 if msg_date >= thirty_mins_ago:
                     valid_ids.append(m_id)
                 else:
-                    break # Nếu gặp tin cũ hơn 30p thì dừng quét
-            except:
-                continue
+                    break
+            except: continue
 
         if not valid_ids:
-            bot.send_message(user_id, "ℹ️ Không có bài mới nào trong 30 phút vừa qua.")
+            bot.send_message(user_id, "ℹ️ Không có bài mới trong 30 phút qua.")
             return
 
-        valid_ids.sort() # Sắp xếp lại ID cho đúng thứ tự bài đăng
-
-        # Sao lưu và tạo link
+        valid_ids.sort()
         try:
             bot.copy_messages(chat_id=STORAGE_GROUP_ID, from_chat_id=SOURCE_CHANNEL_ID, message_ids=valid_ids)
         except: pass
 
         batch_id = f"batch_{uuid.uuid4().hex[:8]}"
         link_storage[batch_id] = valid_ids
-        share_link = f"https://t.me/{BOT_USERNAME}?start={batch_id}"
+        LATEST_BATCH_ID = batch_id 
         
-        bot.send_message(user_id, f"✅ **Đã lọc xong bài 30p qua!**\n\n🔗 Link: `{share_link}`", parse_mode='Markdown')
+        bot.send_message(user_id, "✅ **Đã tạo xong link bài mới nhất!**\n\nSếp có thể gõ /xemngay để kiểm tra giao diện nút bấm.", parse_mode='Markdown')
 
     except Exception as e:
         bot.send_message(user_id, f"❌ Lỗi: {e}")
