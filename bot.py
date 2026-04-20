@@ -31,37 +31,33 @@ def send_welcome(message):
 def handle_get_album(call):
     user_id = call.message.chat.id
     try:
-        status_msg = bot.send_message(user_id, "⌛ **Đang xử lý dữ liệu sạch...**", parse_mode='Markdown')
-
         # Dò ID bài mới nhất
         check = bot.send_message(SOURCE_CHANNEL_ID, ".")
         max_id = check.message_id
         bot.delete_message(SOURCE_CHANNEL_ID, max_id)
 
-        # Hốt trọn Album trong 10 ID gần nhất
+        # Lấy dải 10 ID gần nhất
         message_ids = list(range(max_id - 10, max_id))
 
-        # 1. Lấy danh sách ID bài viết
-        message_ids = list(range(max_id - 10, max_id))
+        # 1. Gửi vào NHÓM LƯU TRỮ (Dùng copy_messages để giữ nguyên Album)
+        try:
+            bot.copy_messages(
+                chat_id=-1003842996683, 
+                from_chat_id=SOURCE_CHANNEL_ID, 
+                message_ids=message_ids
+            )
+        except:
+            pass
 
-        # 2. Gửi vào nhóm lưu trữ (Dùng vòng lặp để ép gửi từng tin)
-        for msg_id in message_ids:
-            try:
-                bot.copy_message(chat_id=STORAGE_GROUP_ID, from_chat_id=SOURCE_CHANNEL_ID, message_id=msg_id)
-            except:
-                continue # Bỏ qua nếu tin nhắn đó không tồn tại
-
-        # 3. Gửi cho khách hàng
-        for msg_id in message_ids:
-            try:
-                bot.copy_message(chat_id=user_id, from_chat_id=SOURCE_CHANNEL_ID, message_id=msg_id)
-            except:
-                continue
-
-        bot.delete_message(user_id, status_msg.message_id)
+        # 2. Gửi cho KHÁCH HÀNG (Dùng copy_messages để giữ nguyên Album)
+        bot.copy_messages(
+            chat_id=user_id, 
+            from_chat_id=SOURCE_CHANNEL_ID, 
+            message_ids=message_ids
+        )
 
     except Exception as e:
-        bot.send_message(user_id, "❌ Lỗi: Bot chưa có bài mới hoặc chưa được làm Admin ở Kênh/Nhóm.")
+        bot.send_message(user_id, "❌ Lỗi: Bot chưa có quyền Admin hoặc dải ID trống.")
 
 # KHỞI CHẠY BOT - ĐÃ KIỂM TRA CÚ PHÁP CHUẨN
 if __name__ == "__main__":
