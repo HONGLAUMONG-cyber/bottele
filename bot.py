@@ -44,7 +44,7 @@ def handle_start(message):
                 )
 
                 markup = types.InlineKeyboardMarkup()
-                markup.add(types.InlineKeyboardButton(text="Kênh Giải Trí 🎭", url="https://t.me/Tramgiaitri"))
+                markup.add(types.InlineKeyboardButton(text="Xem Thêm Link Ngày Khác 🎭", url="https://t.me/Tramgiaitri"))
                 markup.add(types.InlineKeyboardButton(text="Hỗ Trợ Admin 👤", url="https://t.me/Beshanday"))
                 
                 bot.send_message(message.chat.id, finish_text, reply_markup=markup, parse_mode='Markdown')
