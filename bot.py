@@ -42,7 +42,7 @@ def handle_gen_link(call):
         max_id = check.message_id
         bot.delete_message(SOURCE_CHANNEL_ID, max_id)
         
-        # Lấy dải 10 ID (Album/Video)
+        # Lấy dải 50 ID (Album/Video)
         message_ids = list(range(max_id - 10, max_id))
 
         # 1. Sao lưu vào nhóm lưu trữ trước
