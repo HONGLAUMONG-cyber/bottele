@@ -2,6 +2,75 @@ import os
 import telebot
 from telebot import types
 
+# 1. Cấu hình Token và ID
+TOKEN = os.getenv('TELEGRAM_TOKEN')
+bot = telebot.TeleBot(TOKEN)
+
+SOURCE_CHANNEL_ID = -1003740753455    # Kênh nguồn
+STORAGE_GROUP_ID = -1008078171493     # Nhóm lưu trữ (Phải có Bot làm Admin)
+
+# --- PHẦN CODE WELCOME (DÀNH RIÊNG CHO BẠN) ---
+@bot.message_handler(commands=['start'])
+def send_welcome(message):
+    user_name = message.from_user.first_name
+    welcome_text = (
+        f"Chào mừng ✪ {user_name} ✪ đến với Hồng Lâu Mộng 😊\n"
+        f"━━━━━━━━━━━━━━━━━━━━\n"
+        f"✨ Hệ thống tự động lấy bài mới nhất (Giữ nguyên Album).\n"
+        f"📂 Bài viết sẽ được sao lưu an toàn vào nhóm lưu trữ.\n\n"
+        f"❄️ Vui lòng không chặn Bot để nhận link mỗi ngày!"
+    )
+    
+    markup = types.InlineKeyboardMarkup()
+    btn_link = types.InlineKeyboardButton(text="🔗 LẤY FULL ALBUM HÔM NAY", callback_data="get_full_album")
+    markup.add(btn_link)
+    
+    bot.send_message(message.chat.id, welcome_text, reply_markup=markup, parse_mode='Markdown')
+
+# --- PHẦN XỬ LÝ LẤY BÀI VÀ SAO LƯU ---
+@bot.callback_query_handler(func=lambda call: call.data == "get_full_album")
+def handle_get_album(call):
+    user_id = call.message.chat.id
+    try:
+        # Thông báo trạng thái cho khách
+        status_msg = bot.send_message(user_id, "⌛ **Đang trích xuất dữ liệu bài viết...**", parse_mode='Markdown')
+
+        # Dò ID bài mới nhất bằng tin nhắn tạm
+        check = bot.send_message(SOURCE_CHANNEL_ID, ".")
+        max_id = check.message_id
+        bot.delete_message(SOURCE_CHANNEL_ID, max_id)
+
+        # Danh sách 10 ID gần nhất để hốt trọn Album
+        message_ids = list(range(max_id - 10, max_id))
+
+        # 1. COPY VÀO NHÓM LƯU TRỮ (Xóa chữ Forwarded)
+        try:
+            bot.copy_messages(
+                chat_id=STORAGE_GROUP_ID,
+                from_chat_id=SOURCE_CHANNEL_ID,
+                message_ids=message_ids
+            )
+        except Exception as e:
+            print(f"Lỗi gửi nhóm lưu trữ: {e}")
+
+        # 2. COPY CHO NGƯỜI DÙNG (Giữ nguyên Album)
+        bot.copy_messages(
+            chat_id=user_id,
+            from_chat_id=SOURCE_CHANNEL_ID,
+            message_ids=message_ids
+        )
+
+        # Xóa thông báo chờ
+        bot.delete_message(user_id, status_msg.message_id)
+
+    except Exception as e:
+        bot.send_message(user_id, "❌ Hệ thống chưa có bài mới hoặc Bot chưa có quyền Admin.")
+        print(f"Lỗi: {e}")
+
+bot.infinity_polling()import os
+import telebot
+from telebot import types
+
 # 1. Cấu hình
 TOKEN = os.getenv('TELEGRAM_TOKEN')
 bot = telebot.TeleBot(TOKEN)
