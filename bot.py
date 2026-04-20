@@ -9,7 +9,7 @@ bot = telebot.TeleBot(TOKEN)
 
 SOURCE_CHANNEL_ID = -1003740753455    
 STORAGE_GROUP_ID = -1003842996683     
-BOT_USERNAME = "DongBanTo01_bot" # Thay đúng username bot của bạn
+BOT_USERNAME = "Honglaumongg_bot" # Thay đúng username bot của bạn
 
 # Lưu trữ tạm thời link (Trong thực tế nên dùng Database)
 link_storage = {}
