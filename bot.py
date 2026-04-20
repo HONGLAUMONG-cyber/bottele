@@ -41,22 +41,22 @@ def handle_get_album(call):
         # Hốt trọn Album trong 10 ID gần nhất
         message_ids = list(range(max_id - 10, max_id))
 
-        # 1. Sao lưu vào nhóm lưu trữ
-        try:
-            bot.copy_messages(
-                chat_id=STORAGE_GROUP_ID,
-                from_chat_id=SOURCE_CHANNEL_ID,
-                message_ids=message_ids
-            )
-        except Exception as e:
-            print(f"Lỗi gửi nhóm: {e}")
+        # 1. Lấy danh sách ID bài viết
+        message_ids = list(range(max_id - 10, max_id))
 
-        # 2. Gửi cho khách
-        bot.copy_messages(
-            chat_id=user_id,
-            from_chat_id=SOURCE_CHANNEL_ID,
-            message_ids=message_ids
-        )
+        # 2. Gửi vào nhóm lưu trữ (Dùng vòng lặp để ép gửi từng tin)
+        for msg_id in message_ids:
+            try:
+                bot.copy_message(chat_id=STORAGE_GROUP_ID, from_chat_id=SOURCE_CHANNEL_ID, message_id=msg_id)
+            except:
+                continue # Bỏ qua nếu tin nhắn đó không tồn tại
+
+        # 3. Gửi cho khách hàng
+        for msg_id in message_ids:
+            try:
+                bot.copy_message(chat_id=user_id, from_chat_id=SOURCE_CHANNEL_ID, message_id=msg_id)
+            except:
+                continue
 
         bot.delete_message(user_id, status_msg.message_id)
 
