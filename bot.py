@@ -23,11 +23,10 @@ DB_FILE = "bot_data.json"
 USER_FILE = "user_list.json" 
 IMAGE_URL = "https://i.ibb.co/4wL5HbWk/IMG-1120.jpg"
 
-# --- 2. HÀM LƯU TRỮ (GIỮ NGUYÊN CƠ CHẾ FILE CỦA SẾP NHƯNG CỘNG DỒN) ---
+# --- 2. HÀM LƯU TRỮ ---
 def save_data(storage, latest_id):
     try:
         with open(DB_FILE, "w", encoding='utf-8') as f:
-            # Lưu cả kho storage vào file
             json.dump({"storage": storage, "latest_id": latest_id}, f, ensure_ascii=False)
     except: pass
 
@@ -57,7 +56,6 @@ def get_users():
         except: return []
     return []
 
-# Tải dữ liệu cũ lên RAM khi bot chạy
 link_storage, LATEST_BATCH_ID = load_data()
 
 def get_vn_time():
@@ -70,7 +68,7 @@ def is_subscribed(user_id):
         return status in ['member', 'administrator', 'creator']
     except: return False
 
-# --- 3. LỆNH THÔNG BÁO (GIỮ NGUYÊN) ---
+# --- 3. LỆNH THÔNG BÁO ---
 @bot.message_handler(commands=['thongbao'])
 def handle_broadcast(message):
     if message.from_user.id not in ADMIN_IDS:
@@ -95,7 +93,7 @@ def handle_broadcast(message):
         except: blocked += 1
     bot.send_message(message.chat.id, f"✅ Xong! Thành công: {count}, Thất bại: {blocked}")
 
-# --- 4. LỆNH START (GIỮ NGUYÊN GIAO DIỆN) ---
+# --- 4. LỆNH START & TRẢ BÀI ---
 @bot.message_handler(commands=['start'])
 def handle_start(message):
     global link_storage, LATEST_BATCH_ID
@@ -109,17 +107,19 @@ def handle_start(message):
             bot.send_message(message.chat.id, "⚠️ **LỖI:** Sếp phải tham gia kênh chính mới xem được video này!")
         else:
             batch_id = args[1]
-            # Bot tìm trong toàn bộ kho link_storage
             if batch_id in link_storage:
-                msg_ids = link_storage[batch_id]
+                msg_ids_in_storage = link_storage[batch_id]
                 try:
-                    bot.copy_messages(chat_id=message.chat.id, from_chat_id=SOURCE_CHANNEL_ID, message_ids=msg_ids)
+                    # FIX QUAN TRỌNG: Lấy bài từ STORAGE_GROUP_ID
+                    bot.copy_messages(chat_id=message.chat.id, from_chat_id=STORAGE_GROUP_ID, message_ids=msg_ids_in_storage)
+                    time.sleep(1)
                     now_vn = get_vn_time()
+                    
                     finish_text = (
                         f"✅ **ĐÃ GỬI XONG ALBUM NGÀY**\n"
                         f"📅 `{now_vn.strftime('%d-%m-%Y')}` | ⏰ `{now_vn.strftime('%H:%M:%S')}`\n"
                         f"━━━━━━━━━━━━━━━━━━━━\n"
-                        f"📊 Đã gửi xong link Tổng: {len(msg_ids)} bài\n"
+                        f"📊 Đã gửi xong link Tổng: {len(msg_ids_in_storage)} bài\n"
                         f"📺 *Lưu ý: Hệ thống tự reset sau 30 phút!*"
                     )
                     markup = types.InlineKeyboardMarkup()
@@ -127,7 +127,8 @@ def handle_start(message):
                     markup.add(types.InlineKeyboardButton(text="👤 HỖ TRỢ ADMIN", url="https://t.me/Beshanday"))
                     bot.send_message(message.chat.id, finish_text, reply_markup=markup, parse_mode='Markdown')
                     return
-                except: pass
+                except Exception as e:
+                    bot.send_message(message.chat.id, f"❌ Lỗi gửi bài: {e}")
         return
 
     lock_text = (
@@ -149,7 +150,7 @@ def handle_start(message):
         markup.add(types.InlineKeyboardButton(text="🛠 QUẢN TRỊ: TẠO LINK 30P", callback_data="gen_link"))
     bot.send_photo(message.chat.id, photo=IMAGE_URL, caption=lock_text, reply_markup=markup, parse_mode='Markdown')
 
-# --- 5. LỆNH XEMNGAY (GIỮ NGUYÊN) ---
+# --- 5. LỆNH XEMNGAY ---
 @bot.message_handler(commands=['xemngay'])
 def handle_xem_ngay(message):
     global LATEST_BATCH_ID, link_storage
@@ -167,7 +168,7 @@ def handle_xem_ngay(message):
     else:
         bot.send_message(message.chat.id, "ℹ️ Hiện chưa có link mới. Admin vui lòng tạo link trước.")
 
-# --- 6. XỬ LÝ NÚT BẤM (CẬP NHẬT CỘNG DỒN) ---
+# --- 6. XỬ LÝ NÚT BẤM (SAO LƯU VÀ CỘNG DỒN) ---
 @bot.callback_query_handler(func=lambda call: True)
 def handle_query(call):
     global LATEST_BATCH_ID, link_storage
@@ -175,14 +176,16 @@ def handle_query(call):
     if call.data == "gen_link":
         if user_id not in ADMIN_IDS: return
         try:
-            bot.answer_callback_query(call.id, "Đang quét bài...")
+            bot.answer_callback_query(call.id, "Đang quét và sao lưu bài...")
             tmp_msg = bot.send_message(SOURCE_CHANNEL_ID, ".")
             max_id = tmp_msg.message_id
             bot.delete_message(SOURCE_CHANNEL_ID, max_id)
+            
             valid_ids = []
             now = datetime.now(pytz.utc)
             thirty_mins_ago = now - timedelta(minutes=30)
-            for m_id in range(max_id - 1, max_id - 60, -1):
+            
+            for m_id in range(max_id - 1, max_id - 80, -1):
                 try:
                     check_msg = bot.forward_message(STORAGE_GROUP_ID, SOURCE_CHANNEL_ID, m_id)
                     msg_date = datetime.fromtimestamp(check_msg.forward_date, pytz.utc)
@@ -190,21 +193,25 @@ def handle_query(call):
                     if msg_date >= thirty_mins_ago: valid_ids.append(m_id)
                     else: break
                 except: continue
+            
             if not valid_ids:
                 bot.send_message(user_id, "ℹ️ 30p qua không có bài mới.")
                 return
-            valid_ids.sort()
-            bot.copy_messages(chat_id=STORAGE_GROUP_ID, from_chat_id=SOURCE_CHANNEL_ID, message_ids=valid_ids)
             
-            # TẠO ID MỚI VÀ LƯU VÀO KHO (KHÔNG XÓA CŨ)
+            valid_ids.sort()
+            # FIX QUAN TRỌNG: Sao lưu bài sang kho và lấy ID mới tại kho
+            new_storage_ids = []
+            for m_id in valid_ids:
+                m = bot.copy_message(chat_id=STORAGE_GROUP_ID, from_chat_id=SOURCE_CHANNEL_ID, message_id=m_id)
+                new_storage_ids.append(m.message_id)
+
             new_id = f"batch_{uuid.uuid4().hex[:8]}"
-            link_storage[new_id] = valid_ids
+            link_storage[new_id] = new_storage_ids # Lưu ID của kho
             LATEST_BATCH_ID = new_id 
             
-            # Ghi file bao gồm toàn bộ kho link_storage
             save_data(link_storage, LATEST_BATCH_ID)
             
-            bot.send_message(user_id, f"✅ Thành công! Đã thêm vào kho vĩnh viễn.\nLink: `https://t.me/{BOT_USERNAME}?start={new_id}`")
+            bot.send_message(user_id, f"✅ Thành công! Đã sao lưu {len(new_storage_ids)} bài vào kho.\nSếp có thể xóa bài ở nguồn thoải mái.\nLink: `https://t.me/{BOT_USERNAME}?start={new_id}`")
         except Exception as e:
             bot.send_message(user_id, f"❌ Lỗi: {e}")
     elif call.data == "guest_xemngay":
