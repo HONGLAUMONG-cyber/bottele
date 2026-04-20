@@ -12,10 +12,10 @@ bot = telebot.TeleBot(TOKEN)
 
 SOURCE_CHANNEL_ID = -1003740753455    
 STORAGE_GROUP_ID = -1003842996683     
-BOT_USERNAME = "Honglaumongg_bot"
+BOT_USERNAME = "Honglaumongg_bot" # <-- Sửa đúng Username bot của sếp nhé
 
-# QUAN TRỌNG: Thay số 12345678 bằng ID Telegram của bạn
-ADMIN_ID = 12345678 
+# DANH SÁCH ADMIN (Đã cập nhật theo ID sếp gửi)
+ADMIN_IDS = [-8078171493, -6947506249, -7624762615] 
 
 link_storage = {}
 LATEST_BATCH_ID = None 
@@ -48,7 +48,7 @@ def handle_xem_ngay(message):
 @bot.message_handler(commands=['start'])
 def handle_start(message):
     args = message.text.split()
-    # Nếu là link trả bài (dành cho cả khách và admin)
+    # 1. Nếu là link trả bài (Deep-link)
     if len(args) > 1:
         batch_id = args[1]
         if batch_id in link_storage:
@@ -76,10 +76,10 @@ def handle_start(message):
                 bot.send_message(message.chat.id, "❌ Lỗi: Bài viết không tồn tại.")
         return
 
-    # Giao diện chính khi bấm /start
+    # 2. Giao diện chính /start
     markup = types.InlineKeyboardMarkup()
-    # CHỈ HIỆN NÚT TẠO LINK NẾU LÀ ADMIN
-    if message.from_user.id == ADMIN_ID:
+    # Kiểm tra nếu ID người dùng nằm trong danh sách Admin
+    if message.from_user.id in ADMIN_IDS:
         markup.add(types.InlineKeyboardButton(text="🛠 QUẢN TRỊ: TẠO LINK MỚI", callback_data="gen_link"))
     
     markup.add(types.InlineKeyboardButton(text="🚀 XEM NGÀY HÔM NAY", callback_data="guest_xemngay"))
@@ -91,12 +91,12 @@ def handle_query(call):
     global LATEST_BATCH_ID
     
     if call.data == "gen_link":
-        # KIỂM TRA QUYỀN ADMIN MỘT LẦN NỮA
-        if call.from_user.id != ADMIN_ID:
-            bot.answer_callback_query(call.id, "⚠️ Bạn không có quyền sử dụng tính năng này!", show_alert=True)
+        if call.from_user.id not in ADMIN_IDS:
+            bot.answer_callback_query(call.id, "⚠️ Sếp không có quyền Admin!", show_alert=True)
             return
 
         try:
+            # Dò ID bài mới nhất
             tmp_msg = bot.send_message(SOURCE_CHANNEL_ID, ".")
             max_id = tmp_msg.message_id
             bot.delete_message(SOURCE_CHANNEL_ID, max_id)
@@ -105,6 +105,7 @@ def handle_query(call):
             now = datetime.now(pytz.utc)
             thirty_mins_ago = now - timedelta(minutes=30)
 
+            # Quét tìm bài trong 30p
             for m_id in range(max_id - 1, max_id - 35, -1):
                 try:
                     check_msg = bot.forward_message(STORAGE_GROUP_ID, SOURCE_CHANNEL_ID, m_id)
@@ -116,7 +117,8 @@ def handle_query(call):
                 except: continue
 
             if not valid_ids:
-                bot.send_message(ADMIN_ID, "ℹ️ Kênh nguồn 30p qua không có bài mới.")
+                bot.send_message(call.from_user.id, "ℹ️ 30p qua không có bài mới nào.")
+                bot.answer_callback_query(call.id)
                 return
 
             valid_ids.sort()
@@ -126,13 +128,13 @@ def handle_query(call):
             link_storage[batch_id] = valid_ids
             LATEST_BATCH_ID = batch_id 
             
-            bot.send_message(ADMIN_ID, f"✅ **Admin đã tạo link thành công!**\nKhách có thể dùng /xemngay để nhận link này.")
-            bot.answer_callback_query(call.id, "Đã cập nhật link mới nhất!")
+            bot.send_message(call.from_user.id, f"✅ **Admin đã tạo link thành công!**\nLink đã được cập nhật vào lệnh /xemngay.")
+            bot.answer_callback_query(call.id, "Đã cập nhật link!")
+            
         except Exception as e:
-            bot.send_message(ADMIN_ID, f"❌ Lỗi Admin: {e}")
+            bot.send_message(call.from_user.id, f"❌ Lỗi: {e}")
 
     elif call.data == "guest_xemngay":
-        # Chuyển hướng sang hàm xem ngay
         handle_xem_ngay(call.message)
 
 if __name__ == "__main__":
